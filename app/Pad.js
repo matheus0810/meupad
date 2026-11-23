@@ -34,8 +34,6 @@ export default function Pad({ name }) {
   const [status, setStatus] = useState({ s: "idle", t: "Abrindo…" });
   const [addr, setAddr] = useState(name);
   const [pads, setPads] = useState([]);
-  const [showList, setShowList] = useState(true);
-  const [confirmDel, setConfirmDel] = useState(false);
 
   const st = useRef({ dirty: false, saving: false, lastSaved: "", timer: null, text: "" });
 
@@ -76,7 +74,7 @@ export default function Pad({ name }) {
     let alive = true;
     const s = st.current;
     s.dirty = false; s.lastSaved = ""; s.text = "";
-    setLoaded(false); setText(""); setAddr(name); setConfirmDel(false);
+    setLoaded(false); setText(""); setAddr(name);
     setStatus({ s: "idle", t: "Abrindo /" + name + "…" });
     api("/api/pad?name=" + encodeURIComponent(name))
       .then((d) => {
@@ -107,7 +105,6 @@ export default function Pad({ name }) {
   useEffect(() => {
     const onUnload = () => { if (st.current.dirty) save(); };
     window.addEventListener("beforeunload", onUnload);
-    try { setShowList(localStorage.getItem("hideList") !== "1"); } catch {}
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [save]);
 
@@ -136,66 +133,47 @@ export default function Pad({ name }) {
     router.push("/" + n.split("/").map(encodeURIComponent).join("/"));
   }
 
-  function toggleList() {
-    const v = !showList; setShowList(v);
-    try { localStorage.setItem("hideList", v ? "0" : "1"); } catch {}
-  }
-
-  async function del() {
-    const s = st.current;
-    clearTimeout(s.timer); s.dirty = false;
-    try {
-      await api("/api/pad?name=" + encodeURIComponent(name), { method: "DELETE" });
-      s.text = s.lastSaved = ""; setText(""); setConfirmDel(false);
-      setStatus({ s: "saved", t: "Apagado" }); loadList();
-    } catch (e) { setStatus({ s: "error", t: e.message }); }
-  }
-
-  const exists = pads.some((p) => p.name === name);
+  // Subpáginas do pad atual (no "inicio", os pads de primeiro nível).
+  const base = name === "inicio" ? "" : name + "/";
+  const children = [...new Set(
+    pads.map((p) => p.name)
+      .filter((n) => n.startsWith(base) && n !== name && n !== "inicio")
+      .map((n) => n.slice(base.length).split("/")[0])
+  )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const parts = name === "inicio" ? [] : name.split("/");
 
   return (
-    <div className="app">
-      <header>
-        <div className="brand">Meu Pad</div>
-        <form className="addr" onSubmit={(e) => { e.preventDefault(); go(addr); }}>
-          <span>/</span>
-          <input value={addr} onChange={(e) => setAddr(e.target.value)} aria-label="Nome do pad"
-            placeholder="nome-do-pad" autoComplete="off" spellCheck={false} />
-          <button type="submit">Abrir</button>
+    <div className="page">
+      <header className="top">
+        <a className="logo" href="/">meupad</a>
+        <nav className="crumbs" aria-label="Caminho">
+          {parts.map((seg, i) => (
+            <span key={i}>
+              <span className="sep">/</span>
+              <a href={"/" + parts.slice(0, i + 1).map(encodeURIComponent).join("/")}>{seg}</a>
+            </span>
+          ))}
+        </nav>
+        <form className="go" onSubmit={(e) => { e.preventDefault(); go(addr); }}>
+          <input value={addr === "inicio" ? "" : addr} onChange={(e) => setAddr(e.target.value)}
+            aria-label="Ir para o pad" placeholder="ir para…" autoComplete="off" spellCheck={false} />
         </form>
-        <div className="status" data-s={status.s}><i className="dot" /><span>{status.t}</span></div>
-        <button type="button" onClick={toggleList} aria-expanded={showList}>Pads</button>
+        <span className="status" data-s={status.s} title={status.t}>{status.t}</span>
       </header>
-      <main>
-        {showList && (
-          <aside>
-            <h2>Seus pads</h2>
-            <div className="pad-list">
-              {pads.length === 0 && <div className="empty">Nenhum pad ainda. Digite um nome lá em cima e comece a escrever.</div>}
-              {pads.map((p) => (
-                <button key={p.name} type="button" className="pad-item" aria-current={p.name === name}
-                  onClick={() => go(p.name)}>
-                  <span>/{p.name}</span><small>{fmt(p.updatedAt)}</small>
-                </button>
-              ))}
-            </div>
-            {exists && (confirmDel ? (
-              <div className="confirm">
-                <span>Apagar de vez?</span>
-                <button type="button" className="danger" onClick={del}>Apagar</button>
-                <button type="button" onClick={() => setConfirmDel(false)}>Cancelar</button>
-              </div>
-            ) : (
-              <div><button type="button" className="danger" onClick={() => setConfirmDel(true)}>Apagar /{name}</button></div>
-            ))}
-          </aside>
-        )}
-        <div className="sheet">
-          <textarea value={text} disabled={!loaded} spellCheck={false} autoFocus
-            onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown}
-            placeholder="Comece a digitar. Tudo é salvo sozinho." />
-        </div>
-      </main>
+      <div className="body">
+        <aside className="subs">
+          <div className="subs-box">
+            {children.length === 0
+              ? <p className="none">Sem subpáginas</p>
+              : children.map((c) => (
+                  <a key={c} href={"/" + (base + c).split("/").map(encodeURIComponent).join("/")}>{c}</a>
+                ))}
+          </div>
+        </aside>
+        <textarea className="text" value={text} disabled={!loaded} spellCheck={false} autoFocus
+          aria-label={"Texto de /" + name}
+          onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} />
+      </div>
     </div>
   );
 }
