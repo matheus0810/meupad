@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 
-// Pede senha (HTTP Basic Auth) em todas as páginas e na API.
+// Senha opcional: só é pedida se a variável PAD_PASSWORD existir na Vercel.
 export function middleware(req) {
   const password = process.env.PAD_PASSWORD;
-  if (!password) {
-    return new NextResponse("Defina a variável PAD_PASSWORD na Vercel.", { status: 500 });
-  }
+  if (!password) return NextResponse.next();
   const auth = req.headers.get("authorization") || "";
   if (auth.startsWith("Basic ")) {
     try {
