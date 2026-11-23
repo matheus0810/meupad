@@ -50,3 +50,4 @@ aside h2 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em
 .danger { color: var(--warn); }
 .confirm { display: flex; gap: 6px; align-items: center; font-size: 0.82rem; flex-wrap: wrap; }
 @media (max-width: 700px) { main { flex-direction: column; } aside { width: auto; max-height: 40%; order: -1; } }
+.status span { white-space: normal; }

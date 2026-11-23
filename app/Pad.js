@@ -4,6 +4,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { normalizeName } from "./lib";
 
+// fetch com limite de tempo, para não ficar "pendente" para sempre.
+async function api(url, opts = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const r = await fetch(url, { cache: "no-store", ...opts, signal: ctrl.signal });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "Erro " + r.status);
+    return d;
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("O servidor não respondeu");
+    throw e;
+  } finally { clearTimeout(t); }
+}
+
 function fmt(ts) {
   if (!ts) return "";
   const d = new Date(ts);
@@ -26,8 +41,7 @@ export default function Pad({ name }) {
 
   const loadList = useCallback(async () => {
     try {
-      const r = await fetch("/api/pad", { cache: "no-store" });
-      if (r.ok) setPads((await r.json()).pads);
+      setPads((await api("/api/pad")).pads);
     } catch {}
   }, []);
 
@@ -38,13 +52,12 @@ export default function Pad({ name }) {
     const sent = s.text;
     setStatus({ s: "saving", t: "Salvando…" });
     try {
-      const r = await fetch("/api/pad", {
+      await api("/api/pad", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name, text: sent }),
         keepalive: sent.length < 60000,
       });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Erro ao salvar");
       s.lastSaved = sent;
       if (!s.dirty) setStatus({ s: "saved", t: "Salvo" });
       loadList();
@@ -65,14 +78,13 @@ export default function Pad({ name }) {
     s.dirty = false; s.lastSaved = ""; s.text = "";
     setLoaded(false); setText(""); setAddr(name); setConfirmDel(false);
     setStatus({ s: "idle", t: "Abrindo /" + name + "…" });
-    fetch("/api/pad?name=" + encodeURIComponent(name), { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+    api("/api/pad?name=" + encodeURIComponent(name))
       .then((d) => {
         if (!alive) return;
         s.text = s.lastSaved = d.text; setText(d.text); setLoaded(true);
         setStatus({ s: "saved", t: d.updatedAt ? "Salvo" : "Pad novo" });
       })
-      .catch(() => alive && setStatus({ s: "error", t: "Não foi possível abrir este pad" }));
+      .catch((e) => alive && setStatus({ s: "error", t: e.message }));
     return () => { alive = false; if (s.dirty) { clearTimeout(s.timer); save(); } };
   }, [name, save]);
 
@@ -85,7 +97,7 @@ export default function Pad({ name }) {
       const s = st.current;
       if (document.hidden || s.dirty || s.saving) return;
       try {
-        const d = await (await fetch("/api/pad?name=" + encodeURIComponent(name), { cache: "no-store" })).json();
+        const d = await api("/api/pad?name=" + encodeURIComponent(name));
         if (!s.dirty && !s.saving && d.text !== s.text) { s.text = s.lastSaved = d.text; setText(d.text); }
       } catch {}
     }, 5000);
@@ -133,11 +145,10 @@ export default function Pad({ name }) {
     const s = st.current;
     clearTimeout(s.timer); s.dirty = false;
     try {
-      const r = await fetch("/api/pad?name=" + encodeURIComponent(name), { method: "DELETE" });
-      if (!r.ok) throw 0;
+      await api("/api/pad?name=" + encodeURIComponent(name), { method: "DELETE" });
       s.text = s.lastSaved = ""; setText(""); setConfirmDel(false);
       setStatus({ s: "saved", t: "Apagado" }); loadList();
-    } catch { setStatus({ s: "error", t: "Não deu para apagar" }); }
+    } catch (e) { setStatus({ s: "error", t: e.message }); }
   }
 
   const exists = pads.some((p) => p.name === name);

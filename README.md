@@ -6,7 +6,7 @@ Bloco de notas pessoal no estilo dontpad: cada endereço (`/compras`, `/trabalho
 
 1. Suba esta pasta para um repositório no GitHub.
 2. Na Vercel: **Add New → Project**, importe o repositório (ela detecta o Next.js sozinha).
-3. No projeto, abra **Storage → Create Database → Upstash (Redis)**, escolha o plano gratuito e conecte ao projeto. As variáveis do Redis são criadas automaticamente.
+3. No projeto, abra **Storage → Create Database** e escolha **Redis** ou **Upstash (Redis)** no plano gratuito, conectando ao projeto. As variáveis são criadas automaticamente.
 4. Faça um **Redeploy** para o site pegar as variáveis.
 
 ## Senha (opcional)
