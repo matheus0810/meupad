@@ -12,7 +12,7 @@ function fail(e) {
   return Response.json({ error: msg }, { status: 500 });
 }
 
-// GET /api/pad?name=x  -> { name, text, updatedAt }
+// GET /api/pad?name=x  -> { name, text, html, updatedAt }
 // GET /api/pad         -> { pads: [{ name, updatedAt }] }
 export async function GET(req) {
   try {
@@ -24,17 +24,18 @@ export async function GET(req) {
   } catch (e) { return fail(e); }
 }
 
-// PUT /api/pad  body { name, text }
+// PUT /api/pad  body { name, text, html }
 export async function PUT(req) {
   try {
     const body = await req.json().catch(() => null);
     const name = normalizeName(body?.name);
     const text = typeof body?.text === "string" ? body.text : null;
+    const html = typeof body?.html === "string" ? body.html : "";
     if (!name || text === null) return Response.json({ error: "Dados inválidos" }, { status: 400 });
-    if (text.length > MAX_CHARS) return Response.json({ error: "Texto grande demais" }, { status: 413 });
+    if (text.length + html.length > MAX_CHARS) return Response.json({ error: "Texto grande demais" }, { status: 413 });
     const updatedAt = Date.now();
-    if (text === "") await deletePad(name);
-    else await savePad(name, text, updatedAt);
+    if (text.trim() === "") await deletePad(name);
+    else await savePad(name, { text, html }, updatedAt);
     return Response.json({ name, updatedAt });
   } catch (e) { return fail(e); }
 }

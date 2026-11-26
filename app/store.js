@@ -45,25 +45,25 @@ function mode() {
 export async function getPad(name) {
   if (mode() === "rest") {
     const d = (await withTimeout(getUpstash().hgetall(`pad:${name}`))) || {};
-    return { text: d.text ?? "", updatedAt: Number(d.updatedAt || 0) };
+    return { text: d.text ?? "", html: d.html ?? "", updatedAt: Number(d.updatedAt || 0) };
   }
   const c = await tcp();
   const d = await withTimeout(c.hGetAll(`pad:${name}`));
-  return { text: d.text ?? "", updatedAt: Number(d.updatedAt || 0) };
+  return { text: d.text ?? "", html: d.html ?? "", updatedAt: Number(d.updatedAt || 0) };
 }
 
-export async function savePad(name, text, updatedAt) {
+export async function savePad(name, { text, html }, updatedAt) {
   if (mode() === "rest") {
     const r = getUpstash();
     await withTimeout(Promise.all([
-      r.hset(`pad:${name}`, { text, updatedAt }),
+      r.hset(`pad:${name}`, { text, html, updatedAt }),
       r.zadd("pads", { score: updatedAt, member: name }),
     ]));
     return;
   }
   const c = await tcp();
   await withTimeout(Promise.all([
-    c.hSet(`pad:${name}`, { text, updatedAt: String(updatedAt) }),
+    c.hSet(`pad:${name}`, { text, html, updatedAt: String(updatedAt) }),
     c.zAdd("pads", { score: updatedAt, value: name }),
   ]));
 }
