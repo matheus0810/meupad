@@ -4,7 +4,7 @@ import { getPad, savePad, deletePad, listPads, ConfigError } from "../../store";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const MAX_CHARS = 500_000;
+const MAX_CHARS = 1_500_000; // html + texto; abaixo do limite de 4,5 MB da Vercel
 
 function fail(e) {
   console.error(e);

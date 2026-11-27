@@ -17,6 +17,7 @@ async function api(url, opts = {}) {
     return d;
   } catch (e) {
     if (e.name === "AbortError") throw new Error("O servidor não respondeu");
+    if (e instanceof TypeError) throw new Error("Sem conexão com o servidor");
     throw e;
   } finally { clearTimeout(t); }
 }
@@ -69,7 +70,8 @@ export default function Pad({ name }) {
     try { setPads((await api("/api/pad")).pads); } catch {}
   }, []);
 
-  const save = useCallback(async () => {
+  // leaving = true só quando a aba está fechando: aí usa keepalive (limite de 64 KB em bytes).
+  const save = useCallback(async (leaving = false) => {
     const s = st.current;
     if (s.saving || !s.dirty) return;
     s.saving = true; s.dirty = false;
@@ -77,11 +79,12 @@ export default function Pad({ name }) {
     const text = editor.current ? editor.current.innerText : "";
     setStatus({ s: "saving", t: "Salvando…" });
     try {
+      const body = JSON.stringify({ name, html: text.trim() ? html : "", text: text.trim() ? text : "" });
       await api("/api/pad", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, html: text.trim() ? html : "", text: text.trim() ? text : "" }),
-        keepalive: html.length < 60000,
+        body,
+        keepalive: leaving === true && new Blob([body]).size < 60000,
       });
       s.lastSaved = html;
       if (!s.dirty) setStatus({ s: "saved", t: "Salvo" });
@@ -142,7 +145,7 @@ export default function Pad({ name }) {
   }, [loaded, name]);
 
   useEffect(() => {
-    const onUnload = () => { if (st.current.dirty) save(); };
+    const onUnload = () => { if (st.current.dirty) save(true); };
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [save]);
