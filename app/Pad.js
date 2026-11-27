@@ -30,7 +30,16 @@ const ALLOWED = {
   ALLOWED_URI_REGEXP: /^(https?:|mailto:)/i,
 };
 // Tira as quebras de linha entre tags (o editor mostra quebras como linhas em branco).
-const clean = (html) => DOMPurify.sanitize(html, ALLOWED).replace(/>\s*\n\s*</g, "><").trim();
+// Tira as quebras de linha entre tags (o editor mostra quebras como linhas em branco)
+// e desfaz "links" que não são links: âncoras sem endereço ou que cobrem um trecho longo.
+const clean = (html) => {
+  const tpl = document.createElement("template");
+  tpl.innerHTML = DOMPurify.sanitize(html, ALLOWED);
+  tpl.content.querySelectorAll("a").forEach((a) => {
+    if (!a.getAttribute("href") || a.textContent.length > 120) a.replaceWith(...a.childNodes);
+  });
+  return tpl.innerHTML.replace(/>\s*\n\s*</g, "><").trim();
+};
 
 const escapeHtml = (s) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
